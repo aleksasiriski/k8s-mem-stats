@@ -25,6 +25,14 @@ def remove_namespace_prefix(key):
     return key.split("/", 1)[-1]
 
 
+def is_job_pod(pod_name):
+    # A simple heuristic to filter out pods likely managed by Jobs
+    parts = pod_name.split("-")
+    if len(parts) > 2 and parts[-2].isdigit() and len(parts[-1]) == 5:
+        return True  # Matches the typical Job pod name pattern
+    return False
+
+
 def process_memory_data(input_file, output_file):
     with open(input_file, "r") as f:
         data = json.load(f)
@@ -35,8 +43,11 @@ def process_memory_data(input_file, output_file):
 
     for item in data:
         for key, value in item.items():
+            pod_name = remove_namespace_prefix(key)
+            if is_job_pod(pod_name):
+                continue  # Skip pods from Kubernetes Jobs
             namespace = extract_namespace(key)
-            base_key = extract_base_key(remove_namespace_prefix(key))
+            base_key = extract_base_key(pod_name)
             memory_value = convert_memory(value)
             memory_dict[namespace][base_key] += memory_value
             namespace_totals[namespace] += memory_value
